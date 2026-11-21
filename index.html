@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#272727">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Parks in HK">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/svg+xml" href="./icon.svg">
+<link rel="apple-touch-icon" href="./icon.svg">
+<title>Parks in HK</title>
+<style>
+  :root{
+    --bg:#141414; --bar:#272727; --surface:#1f1f1f; --surface2:#2a2a2a; --line:#3a3a3a; --line2:#2f2f2f;
+    --text:#ececec; --muted:#a0a0a0; --accent:#a5d6a7; --accent-dark:#4f8f55; --pill:#d4ecd2; --danger:#ef8a80;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Noto Sans HK","Microsoft JhengHei",Roboto,sans-serif;font-size:16px}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  svg{width:24px;height:24px;fill:currentColor;flex:none}
+  #app{display:flex;flex-direction:column;height:100%;height:100dvh}
+
+  /* app bar */
+  header{background:var(--bar);display:flex;align-items:center;gap:4px;padding:0 6px;
+    padding-top:env(safe-area-inset-top);min-height:60px;border-bottom:1px solid #333;flex:none}
+  header .title{flex:1;font-size:21px;padding-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .icon-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center}
+  .icon-btn:active{background:#ffffff1a}
+  .icon-btn.on{color:var(--accent)}
+  #searchbar{display:none;background:var(--bar);padding:8px 12px;border-bottom:1px solid #333;flex:none}
+  #searchbar.show{display:block}
+  #searchbar input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font-size:16px;outline:none}
+  #searchbar input:focus{border-color:var(--accent)}
+  #chips{display:none;gap:8px;padding:8px 12px;background:var(--bar);border-bottom:1px solid #333;flex:none;overflow-x:auto}
+  #chips.show{display:flex}
+  .chip{padding:6px 14px;border-radius:16px;border:1px solid var(--line);font-size:14px;white-space:nowrap}
+  .chip.on{background:var(--pill);color:#1c3a1e;border-color:var(--pill)}
+
+  main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;position:relative}
+
+  /* district grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px 24px;padding:24px 12px}
+  .dbtn{background:var(--surface);border:1px solid var(--line);border-radius:6px;text-align:left;
+    padding:12px 12px 10px;min-height:60px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+  .dbtn:active{background:var(--surface2)}
+  .dbtn .n{font-size:19px}
+  .dbtn .p{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .bar{flex:1;height:4px;border-radius:2px;background:#333;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  .summary{margin:0 12px;padding:14px;border-radius:8px;background:var(--surface);border:1px solid var(--line2);
+    display:flex;align-items:center;gap:12px;font-size:14px;color:var(--muted)}
+  .summary b{color:var(--text);font-size:20px;font-weight:500}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th{position:sticky;top:0;background:var(--bar);z-index:2;text-align:left;font-weight:500;font-size:16px;
+    padding:16px 12px;border-right:1px solid #3a3a3a;border-bottom:1px solid #3a3a3a;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;cursor:pointer;user-select:none}
+  th:last-child{border-right:0}
+  th .ar{display:inline-flex;vertical-align:-3px;margin-left:2px}
+  th .ar svg{width:16px;height:16px}
+  td{padding:0 12px;height:64px;border-bottom:1px solid var(--line2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:16px}
+  tbody tr{cursor:pointer}
+  tbody tr:active td{background:#ffffff0d}
+  tr.group td{background:#0f0f0f;height:56px;font-size:16px}
+  .badge{display:inline-block;background:#555;color:#ddd;font-size:13px;padding:1px 7px;border-radius:5px;margin-left:10px;vertical-align:1px}
+  tr.group .chev{float:right;color:var(--muted);transition:transform .15s}
+  tr.group.closed .chev{transform:rotate(-90deg)}
+  td.v{color:var(--accent)}
+  .empty{padding:48px 24px;text-align:center;color:var(--muted)}
+
+  /* bottom nav */
+  nav{background:var(--bar);display:flex;border-top:1px solid #333;padding-bottom:env(safe-area-inset-bottom);flex:none}
+  nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 2px 14px;color:#9a9a9a;font-size:13px;min-width:0}
+  nav .pill{width:64px;height:32px;border-radius:16px;display:grid;place-items:center}
+  nav button.on{color:var(--accent)}
+  nav button.on .pill{background:var(--pill);color:var(--accent-dark)}
+  nav span.l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+  /* FAB */
+  .fab{position:fixed;right:24px;bottom:calc(110px + env(safe-area-inset-bottom));width:64px;height:64px;border-radius:18px;
+    background:var(--accent);color:#1b1b1b;display:grid;place-items:center;box-shadow:0 4px 12px #0008;z-index:5}
+  .fab svg{width:32px;height:32px}
+
+  /* drawer */
+  #scrim{position:fixed;inset:0;background:#0009;opacity:0;pointer-events:none;transition:opacity .2s;z-index:20}
+  #scrim.show{opacity:1;pointer-events:auto}
+  #drawer{position:fixed;top:0;bottom:0;left:0;width:min(78vw,320px);background:#2e2e2e;z-index:21;
+    transform:translateX(-102%);transition:transform .22s ease;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+  #drawer.show{transform:none}
+  #drawer .head{display:flex;align-items:center;gap:18px;padding:22px 24px;font-size:19px}
+  #drawer .logo{width:40px;height:40px;border-radius:8px;background:#e8f1fb;display:grid;place-items:center;font-size:24px}
+  #drawer .item{display:flex;align-items:center;gap:24px;padding:14px 24px;font-size:18px;text-align:left;width:100%}
+  #drawer .item:active{background:#ffffff12}
+  #drawer hr{border:0;border-top:1px solid #444;margin:6px 24px}
+
+  /* form */
+  .form{padding:16px}
+  .field{margin-bottom:20px}
+  .field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .field input,.field textarea{width:100%;padding:13px 12px;border-radius:8px;border:1px solid var(--line);
+    background:var(--surface);color:var(--text);font-size:17px;outline:none;font-family:inherit}
+  .field textarea{min-height:90px;resize:vertical}
+  .field input:focus,.field textarea:focus{border-color:var(--accent)}
+  .quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .btns{display:flex;gap:12px;margin-top:28px}
+  .btn{flex:1;padding:14px;border-radius:24px;font-size:16px;font-weight:500;text-align:center}
+  .btn.primary{background:var(--accent);color:#1b1b1b}
+  .btn.ghost{border:1px solid var(--line)}
+  .btn.danger{color:var(--danger);border:1px solid #5a3330}
+  .btn:disabled{opacity:.5}
+
+  /* page (Myth/Plan/Resources) */
+  .cards{padding:12px;display:flex;flex-direction:column;gap:10px}
+  .card{background:var(--surface);border:1px solid var(--line2);border-radius:10px;padding:14px 16px}
+  .card h3{margin:0 0 6px;font-size:17px;font-weight:500}
+  .card p{margin:4px 0;color:#cfcfcf;font-size:15px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .card p small{color:var(--muted);display:block;font-size:12px}
+  a{color:#8ab4f8}
+  .prose{padding:20px;line-height:1.65;color:#d6d6d6}
+  .prose h2{font-weight:500;color:var(--text)}
+
+  .foot{padding:16px 16px 120px;color:var(--muted);font-size:13px;text-align:center}
+  .field.ro{display:flex;align-items:center;gap:12px}
+  .field.ro label{margin:0;min-width:56px}
+  .tag{display:inline-block;padding:3px 10px;border-radius:12px;background:#2f3a2f;color:#cfe8cf;font-size:13px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px}
+  .chip.go{border-color:var(--accent);color:var(--accent)}
+  .links{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  a.lnk{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;background:#22303f;color:#a8c7fa;text-decoration:none;font-size:13px;margin:2px 4px 2px 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hi{background:#3a3214;border-left:3px solid #e6c35c;border-radius:6px;padding:8px 10px;margin:8px 0;color:#f3e2a6;font-size:15px}
+  .hi small{display:block;color:#c9b26a;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  .card p.note{color:var(--muted)}
+  .linklist{padding:8px 0}
+  a.litem{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--line2);color:var(--text);text-decoration:none}
+  a.litem:active{background:#ffffff0d}
+  .lic{width:40px;height:40px;border-radius:10px;background:var(--surface2);display:grid;place-items:center;font-size:20px;flex:none}
+  .lt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+  .lt b{font-weight:500;font-size:16px;line-height:1.35}
+  .lt small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lgo{color:var(--muted)} .lgo svg{width:20px;height:20px}
+
+  /* misc & banners */
+  .spin{width:36px;height:36px;border-radius:50%;border:3px solid #444;border-top-color:var(--accent);animation:sp 0.8s linear infinite;margin:60px auto}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);
+    background:#e9e9e9;color:#111;padding:12px 18px;border-radius:8px;font-size:15px;opacity:0;transition:.2s;z-index:30;max-width:90vw}
+  #toast.show{opacity:1;transform:translateX(-50%)}
+  #toast.err{background:#f2b8b5;color:#601410}
+  .banner{background:#5a4a14;color:#ffe9a8;font-size:12px;text-align:center;padding:4px;flex:none}
+  .banner.off{background:#4a2320;color:#f5c2be}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="statusBanner" class="banner" style="display:none"></div>
+  <header>
+    <button class="icon-btn" id="navBtn"></button>
+    <div class="title" id="title">Parks in HK</div>
+    <div id="actions" style="display:flex"></div>
+  </header>
+  <div id="searchbar"><input id="q" type="search" placeholder="搜尋公園…" autocomplete="off"></div>
+  <div id="chips"></div>
+  <main id="main"></main>
+  <nav id="tabs"></nav>
+</div>
+<div id="scrim"></div>
+<aside id="drawer"></aside>
+<div id="toast"></div>
+
+<script>
+/* ===================== icons ===================== */
+const P = {
+  menu:'M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z',
+  back:'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
+  search:'M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z',
+  refresh:'M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
+  add:'M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z',
+  filter:'M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z',
+  tree:'M17 12h2L12 2 5.05 12H7l-3.9 6h6.92v4h3.95v-4H21l-4-6z',
+  flower:'M12 22c4.97 0 9-4.03 9-9-4.97 0-9 4.03-9 9zM5.6 10.25c0 1.38 1.12 2.5 2.5 2.5.53 0 1.01-.16 1.42-.44l-.02.19c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5l-.02-.19c.4.28.89.44 1.42.44 1.38 0 2.5-1.12 2.5-2.5 0-1-.59-1.85-1.43-2.25.84-.4 1.43-1.25 1.43-2.25 0-1.38-1.12-2.5-2.5-2.5-.53 0-1.01.16-1.42.44l.02-.19C14.5 2.12 13.38 1 12 1S9.5 2.12 9.5 3.5l.02.19c-.4-.28-.89-.44-1.42-.44-1.38 0-2.5 1.12-2.5 2.5 0 1 .59 1.85 1.43 2.25-.84.4-1.43 1.25-1.43 2.25zM12 5.5c1.38 0 2.5 1.12 2.5 2.5s-1.12 2.5-2.5 2.5S9.5 9.38 9.5 8s1.12-2.5 2.5-2.5zM3 13c0 4.97 4.03 9 9 9 0-4.97-4.03-9-9-9z',
+  city:'M15 11V5l-3-3-3 3v2H3v14h18V11h-6zm-8 8H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V9h2v2zm6 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V9h2v2zm0-4h-2V5h2v2zm6 12h-2v-2h2v2zm0-4h-2v-2h2v2z',
+  help:'M11.07 12.85c.77-1.39 2.25-2.21 3.11-3.44.91-1.29.4-3.7-2.18-3.7-1.69 0-2.52 1.28-2.87 2.34L6.54 6.96C7.25 4.83 9.18 3 11.99 3c2.35 0 3.96 1.07 4.78 2.41.7 1.15 1.11 3.3.03 4.9-1.2 1.77-2.35 2.31-2.97 3.45-.25.46-.35.76-.35 2.24h-2.89c-.01-.78-.13-2.05.48-3.15zM14 20c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z',
+  edit:'M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z',
+  list:'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z',
+  info:'M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z',
+  shortcut:'M18 1.01 8 1c-1.1 0-2 .9-2 2v3h2V5h10v14H8v-1H6v3c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM10 15h2V8H5v2h3.59L3 15.59 4.41 17 10 11.41V15z',
+  settings:'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  open:'M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z',
+  down:'M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z',
+  up:'M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z',
+  chev:'M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z',
+};
+const ic = (n) => `<svg viewBox="0 0 24 24"><path d="${P[n] || P.list}"/></svg>`;
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = (s) => document.querySelector(s);
+
+/* ===================== connection & offline cache ===================== */
+const STORE = {
+  conn: 'parks_hk_conn_v1',
+  cache: 'parks_hk_cache_v1',
+};
+
+function getConn() {
+  try { return JSON.parse(localStorage.getItem(STORE.conn) || 'null'); } catch { return null; }
+}
+function saveConn(conn) {
+  if (conn) localStorage.setItem(STORE.conn, JSON.stringify(conn));
+  else localStorage.removeItem(STORE.conn);
+}
+function readCache(key) {
+  try { const all = JSON.parse(localStorage.getItem(STORE.cache) || '{}'); return all[key]; } catch { return undefined; }
+}
+function writeCache(key, val) {
+  try {
+    const all = JSON.parse(localStorage.getItem(STORE.cache) || '{}');
+    all[key] = val;
+    localStorage.setItem(STORE.cache, JSON.stringify(all));
+  } catch {}
+}
+
+function setBanner(text, isOffline) {
+  const b = $('#statusBanner');
+  if (!text) { b.style.display = 'none'; return; }
+  b.textContent = text;
+  b.className = 'banner' + (isOffline ? ' off' : '');
+  b.style.display = 'block';
+}
+
+/* ===================== backend bridge (GitHub Pages -> GAS JSON API) ===================== */
+async function api(fn, ...args) {
+  const conn = getConn();
+  if (!conn || conn.demo) {
+    setBanner('預覽模式 · 示範資料 (Demo Mode)', false);
+    return new Promise((resolve, reject) => {
+      setTimeout(() => { try { resolve(MOCK[fn](...args)); } catch (e) { reject(e); } }, 120);
+    });
+  }
+
+  const isRead = ['getConfig', 'getProgress', 'getSheetData', 'getPage'].includes(fn);
+  const cacheKey = fn + ':' + JSON.stringify(args);
+
+  try {
+    const res = await fetch(conn.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ token: conn.token, fn, args }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (!data.ok) {
+      if (/Unauthorized/i.test(data.error)) {
+        toast('存取密碼錯誤，請重新設定', true);
+        push({ type: 'setup', err: data.error });
+      }
+      throw new Error(data.error || 'API Error');
+    }
+    setBanner(null);
+    if (isRead) writeCache(cacheKey, data.result);
+    return data.result;
+  } catch (err) {
+    if (isRead) {
+      const cached = readCache(cacheKey);
+      if (cached !== undefined) {
+        setBanner('離線模式 · 顯示本機快取資料', true);
+        return cached;
+      }
+    } else {
+      throw new Error('無法連線至 Google Sheet（離線或網路錯誤），變更未儲存。');
+    }
+    throw err;
+  }
+}
+
+/* ===================== state ===================== */
+const S = {
+  cfg: null, progress: {}, data: {}, tab: 0,
+  stack: [],
+  search: '', searchOpen: false, chipsOpen: false,
+};
+const VISITED = (v) => /^\d+$/.test(String(v).trim());
+const numCol = (h) => { const i = h.findIndex(x => /^(number|no\.?|編號|號碼)$/i.test(String(x).trim())); return i >= 0 ? i : 2; };
+const groupCol = (h) => { const i = h.findIndex(x => /地區|district/i.test(String(x))); return i >= 0 ? i : 1; };
+
+/* ===================== UI helpers ===================== */
+function toast(msg, err) {
+  const t = $('#toast'); t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(t._h); t._h = setTimeout(() => t.className = '', err ? 4500 : 2200);
+}
+function loading() { $('#main').innerHTML = '<div class="spin"></div>'; }
+function showError(e) { $('#main').innerHTML = `<div class="empty">⚠️ ${esc(e.message || e)}</div>`; }
+
+function setBar({ title, back, hideMenu, actions = [] }) {
+  $('#title').textContent = title;
+  const nb = $('#navBtn');
+  if (hideMenu) {
+    nb.style.visibility = 'hidden';
+    nb.onclick = null;
+  } else {
+    nb.style.visibility = 'visible';
+    nb.innerHTML = ic(back ? 'back' : 'menu');
+    nb.onclick = back ? goBack : openDrawer;
+  }
+  const box = $('#actions'); box.innerHTML = '';
+  actions.forEach(a => {
+    const b = document.createElement('button');
+    b.className = 'icon-btn' + (a.on ? ' on' : ''); b.innerHTML = ic(a.icon); b.title = a.label || '';
+    b.onclick = a.run; box.appendChild(b);
+  });
+  const t = current() && current().type;
+  $('#searchbar').classList.toggle('show', S.searchOpen && (t === 'district' || t === 'all' || t === 'page'));
+  $('#chips').classList.toggle('show', S.chipsOpen && t === 'district');
+  $('#tabs').style.display = (t === 'setup' && !S.cfg) ? 'none' : 'flex';
+}
+
+function renderTabs() {
+  if (!S.cfg) return;
+  const tabs = S.cfg.regions.map((r, i) => ({ label: r.name, icon: r.icon, i }))
+    .concat([{ label: '全香港公園檢索', icon: 'search', i: S.cfg.regions.length }]);
+  $('#tabs').innerHTML = tabs.map(t =>
+    `<button class="${S.tab === t.i ? 'on' : ''}" data-i="${t.i}"><span class="pill">${ic(t.icon)}</span><span class="l">${esc(t.label)}</span></button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => switchTab(+b.dataset.i));
+}
+
+/* ===================== navigation ===================== */
+function switchTab(i) {
+  S.tab = i; S.stack = []; resetSearch(); renderTabs();
+  if (i < S.cfg.regions.length) push({ type: 'region', idx: i }); else push({ type: 'all' });
+}
+function push(view) { S.stack.push(view); render(); }
+function goBack() {
+  if (S.stack.length > 1) {
+    const left = S.stack.pop();
+    if (left.type === 'district' || left.type === 'all' || left.type === 'page') resetSearch();
+    render();
+  }
+}
+function resetSearch() { S.search = ''; S.searchOpen = false; S.chipsOpen = false; $('#q').value = ''; }
+function current() { return S.stack[S.stack.length - 1]; }
+function render() {
+  const v = current();
+  $('#main').scrollTop = 0;
+  ({ region: viewRegion, district: viewDistrict, edit: viewEdit, all: viewAll,
+     page: viewPage, about: viewAbout, shortcut: viewShortcut, setup: viewSetup })[v.type](v);
+}
+function toggleSearch() {
+  S.searchOpen = !S.searchOpen;
+  if (!S.searchOpen) { S.search = ''; $('#q').value = ''; }
+  render();
+  if (S.searchOpen) setTimeout(() => $('#q').focus(), 50);
+}
+$('#q').addEventListener('input', e => { S.search = e.target.value.trim().toLowerCase(); render(); });
+
+/* ===================== drawer ===================== */
+function openDrawer() { $('#drawer').classList.add('show'); $('#scrim').classList.add('show'); }
+function closeDrawer() { $('#drawer').classList.remove('show'); $('#scrim').classList.remove('show'); }
+$('#scrim').onclick = closeDrawer;
+function renderDrawer() {
+  const pages = S.cfg.menuPages.map((p, i) => `<button class="item" data-p="${i}">${ic(p.icon)}${esc(p.title)}</button>`).join('');
+  $('#drawer').innerHTML = `
+    <div class="head"><div class="logo">🌳</div>${esc(S.cfg.title)}</div>
+    ${pages}<hr>
+    <button class="item" data-x="about">${ic('info')}About</button>
+    <button class="item" data-x="shortcut">${ic('shortcut')}Add Shortcut</button>
+    <button class="item" data-x="setup">${ic('settings')}API 連線設定</button><hr>
+    <a class="item" href="${esc(S.cfg.sheetUrl)}" target="_blank" style="color:inherit;text-decoration:none">${ic('open')}打開 Google Sheet</a>`;
+  $('#drawer').querySelectorAll('[data-p]').forEach(b => b.onclick = () => {
+    closeDrawer(); resetSearch(); push({ type: 'page', page: S.cfg.menuPages[+b.dataset.p] });
+  });
+  $('#drawer').querySelectorAll('[data-x]').forEach(b => b.onclick = () => {
+    closeDrawer(); resetSearch(); push({ type: b.dataset.x });
+  });
+}
+
+/* ===================== views ===================== */
+function viewSetup(v) {
+  const conn = getConn() || { url: '', token: '', demo: false };
+  const hasBack = S.stack.length > 1 && !!S.cfg;
+  setBar({ title: '連線設定', back: hasBack, hideMenu: !hasBack });
+  $('#main').innerHTML = `<div class="form">
+    <p style="color:var(--muted);font-size:14px;line-height:1.5;margin-top:0">
+      輸入你的 Google Apps Script Web App 網址及自訂存取密碼（僅儲存於此裝置瀏覽器）。
+    </p>
+    ${v.err ? `<p style="color:var(--danger);font-size:14px">⚠️ ${esc(v.err)}</p>` : ''}
+    <div class="field"><label>Apps Script Web App URL (結尾為 /exec)</label>
+      <input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="${esc(conn.url || '')}" autocomplete="off"></div>
+    <div class="field"><label>存取密碼 (API_SECRET)</label>
+      <input id="cfgToken" type="password" placeholder="輸入 Code.gs 中設定的密碼" value="${esc(conn.token || '')}" autocomplete="off"></div>
+    <div class="btns">
+      <button class="btn primary" id="btnConnect">儲存並連線</button>
+    </div>
+    <div class="btns" style="margin-top:14px">
+      <button class="btn ghost" id="btnDemo">試用示範模式 (Demo)</button>
+    </div>
+  </div>`;
+
+  $('#btnConnect').onclick = async () => {
+    const url = $('#cfgUrl').value.trim();
+    const token = $('#cfgToken').value.trim();
+    if (!url.startsWith('https://')) return toast('請輸入有效的 https:// 網址', true);
+    if (!token) return toast('請輸入存取密碼', true);
+    saveConn({ url, token, demo: false });
+    S.data = {}; S.progress = {};
+    await boot();
+  };
+  $('#btnDemo').onclick = async () => {
+    saveConn({ demo: true });
+    S.data = {}; S.progress = {};
+    await boot();
+  };
+}
+
+function viewRegion(v) {
+  const r = S.cfg.regions[v.idx];
+  setBar({ title: r.name, actions: [{ icon: 'refresh', label: '重新整理', run: () => loadProgress(true) }] });
+  let tv = 0, tt = 0;
+  const cells = r.districts.map(d => {
+    const p = S.progress[d.name];
+    if (p) { tv += p.visited; tt += p.total; }
+    const pct = p && p.total ? Math.round(p.visited / p.total * 100) : 0;
+    const info = p === null ? '<span style="color:var(--danger)">找不到工作表</span>'
+      : p ? `<span>${p.visited}/${p.total}</span><span class="bar"><i style="width:${pct}%"></i></span>` : '<span>…</span>';
+    return `<button class="dbtn" data-d="${esc(d.name)}"><span class="n">${esc(d.name)}</span><span class="p">${info}</span></button>`;
+  }).join('');
+  const pct = tt ? Math.round(tv / tt * 100) : 0;
+  $('#main').innerHTML = `<div class="grid">${cells}</div>` +
+    (tt ? `<div class="summary"><b>${tv}</b> / ${tt} 已到訪 · ${esc(r.name)} ${pct}%<span class="bar"><i style="width:${pct}%"></i></span></div>` : '');
+  $('#main').querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
+    const d = r.districts.find(x => x.name === b.dataset.d);
+    resetSearch(); push({ type: 'district', name: d.name, sheet: d.sheet, sort: null, filter: 'all' });
+  });
+}
+
+async function getData(sheet, force) {
+  if (!S.data[sheet] || force) S.data[sheet] = await api('getSheetData', sheet);
+  return S.data[sheet];
+}
+
+function sortRows(rows, col, dir, nc) {
+  const grp = (v) => { v = String(v).trim(); if (!v) return 2; return VISITED(v) ? 1 : 0; };
+  return rows.slice().sort((a, b) => {
+    const x = a.values[col], y = b.values[col];
+    if (col === nc) {
+      const gx = grp(x), gy = grp(y);
+      if (dir === 'desc') { if (gx !== gy) return gx - gy; }
+      else { const o = [1, 0, 2]; if (o[gx] !== o[gy]) return o[gx] - o[gy]; }
+      if (gx === 1) return dir === 'desc' ? +y - +x : +x - +y;
+    }
+    if (!String(x).trim() && String(y).trim()) return 1;
+    if (String(x).trim() && !String(y).trim()) return -1;
+    const c = String(x).localeCompare(String(y), 'zh-Hant');
+    return dir === 'desc' ? -c : c;
+  });
+}
+
+function listCols(headers) {
+  const want = (S.cfg.listColumns || []).map(x => String(x).trim().toLowerCase());
+  const idx = want.map(w => headers.findIndex(h => String(h).trim().toLowerCase() === w)).filter(i => i >= 0);
+  return idx.length ? idx : headers.map((_, i) => i).filter(i => String(headers[i]).trim());
+}
+
+async function viewDistrict(v) {
+  const filtersOn = v.filter !== 'all';
+  setBar({ title: v.name, back: true, actions: [
+    { icon: 'search', label: '搜尋', on: S.searchOpen, run: toggleSearch },
+    { icon: 'filter', label: '篩選', on: filtersOn || S.chipsOpen, run: () => { S.chipsOpen = !S.chipsOpen; render(); } },
+    { icon: 'refresh', label: '重新整理', run: async () => { loading(); await getData(v.sheet, true).catch(showError); render(); } },
+  ]});
+  $('#chips').innerHTML = [['all', '全部'], ['visited', '已到訪'], ['todo', '未到訪']]
+    .map(([k, l]) => `<button class="chip ${v.filter === k ? 'on' : ''}" data-f="${k}">${l}</button>`).join('');
+  $('#chips').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { v.filter = b.dataset.f; render(); });
+
+  if (!S.data[v.sheet]) { loading(); try { await getData(v.sheet); } catch (e) { return showError(e); } if (current() !== v) return; }
+  const { headers, rows } = S.data[v.sheet];
+  const nc = numCol(headers);
+  const cols = listCols(headers);
+  if (!v.sort) v.sort = { col: nc, dir: 'desc' };
+
+  let list = rows;
+  if (v.filter === 'visited') list = list.filter(r => VISITED(r.values[nc]));
+  if (v.filter === 'todo') list = list.filter(r => !VISITED(r.values[nc]));
+  if (S.search) list = list.filter(r => r.values.join(' ').toLowerCase().includes(S.search));
+  list = sortRows(list, v.sort.col, v.sort.dir, nc);
+
+  const done = rows.filter(r => VISITED(r.values[nc])).length;
+  $('#main').innerHTML = `<table><colgroup>${cols.map((c, k) => `<col style="width:${k === 0 ? '44%' : c === nc ? '30%' : ''}">`).join('')}</colgroup>
+    <thead><tr>${cols.map(i => `<th data-c="${i}">${esc(headers[i])}${v.sort.col === i ? `<span class="ar">${ic(v.sort.dir === 'desc' ? 'down' : 'up')}</span>` : ''}</th>`).join('')}</tr></thead>
+    <tbody>${list.map(r => `<tr data-r="${r.row}">${cols.map(i => `<td class="${i === nc && VISITED(r.values[i]) ? 'v' : ''}">${esc(r.values[i])}</td>`).join('')}</tr>`).join('')}</tbody></table>
+    ${list.length ? `<div class="foot">${list.length} 個公園 · 已到訪 ${done}/${rows.length}</div>` : '<div class="empty">沒有資料</div>'}
+    <button class="fab" id="fab" title="新增">${ic('add')}</button>`;
+  $('#main').querySelectorAll('th').forEach(th => th.onclick = () => {
+    const c = +th.dataset.c;
+    v.sort = v.sort.col === c ? { col: c, dir: v.sort.dir === 'desc' ? 'asc' : 'desc' } : { col: c, dir: c === nc ? 'desc' : 'asc' };
+    render();
+  });
+  $('#main').querySelectorAll('tbody tr').forEach(tr => tr.onclick = () => {
+    const row = rows.find(r => r.row === +tr.dataset.r);
+    push({ type: 'edit', district: v.name, sheet: v.sheet, row });
+  });
+  $('#fab').onclick = () => push({ type: 'edit', district: v.name, sheet: v.sheet, row: null });
+}
+
+function nextNumber(rows, nc) {
+  let max = 0, width = 3;
+  rows.forEach(r => { const s = String(r.values[nc]).trim(); if (VISITED(s)) { max = Math.max(max, +s); width = Math.max(width, s.length); } });
+  return String(max + 1).padStart(width, '0');
+}
+
+function urlPreview(text) {
+  const urls = String(text || '').match(/https?:\/\/[^\s]+/g) || [];
+  return urls.map(u => `<a class="lnk" href="${esc(u)}" target="_blank">${linkIcon(u)} ${esc(domainOf(u))}</a>`).join('');
+}
+
+function viewEdit(v) {
+  const { headers, rows, formulaCols = [] } = S.data[v.sheet];
+  const nc = numCol(headers);
+  const dc = headers.findIndex(h => /^(十八區|地區)$/.test(String(h).trim()));
+  const vals = v.row ? v.row.values.slice() : headers.map(() => '');
+  if (!v.row && dc >= 0) vals[dc] = v.district;
+  setBar({ title: v.row ? `${v.district} · 編輯` : `${v.district} · 新增`, back: true });
+  const next = nextNumber(rows, nc);
+  const isLong = (h) => /remark|備註|reference|comment|note/i.test(h);
+
+  const fields = headers.map((h, i) => {
+    h = String(h).trim();
+    if (!h) return '';
+    if (formulaCols[i]) {
+      return /分類/.test(h) && vals[i] ? `<div class="field ro"><label>${esc(h)}</label><span class="tag">${esc(vals[i])}</span></div>` : '';
+    }
+    if (i === dc) return `<div class="field ro"><label>${esc(h)}</label><span class="tag">${esc(vals[i] || v.district)}</span></div>`;
+    let input = isLong(h)
+      ? `<textarea data-i="${i}" rows="3">${esc(vals[i])}</textarea>`
+      : `<input data-i="${i}" value="${esc(vals[i])}" autocomplete="off">`;
+    if (i === nc) input += `<div class="quick">
+        <button class="chip go" data-q="${next}">✓ 已到訪 → ${esc(v.district)}${next}</button>
+        ${(S.cfg.numberShortcuts || []).map(x => `<button class="chip" data-q="${esc(x)}">${esc(x)}</button>`).join('')}
+        <button class="chip" data-q="">清除</button></div>`;
+    if (isLong(h)) input += `<div class="links" data-l="${i}">${urlPreview(vals[i])}</div>`;
+    return `<div class="field"><label>${esc(h)}</label>${input}</div>`;
+  }).join('');
+
+  $('#main').innerHTML = `<div class="form">${fields}
+    <div class="btns"><button class="btn ghost" id="cancel">取消</button><button class="btn primary" id="save">儲存</button></div>
+    ${v.row ? '<div class="btns"><button class="btn danger" id="del">刪除此公園</button></div>' : ''}</div>`;
+  $('#main').querySelectorAll('[data-q]').forEach(b => b.onclick = () => { $(`[data-i="${nc}"]`).value = b.dataset.q; });
+  $('#main').querySelectorAll('textarea').forEach(t => t.oninput = () => { $(`[data-l="${t.dataset.i}"]`).innerHTML = urlPreview(t.value); });
+  $('#cancel').onclick = goBack;
+  $('#save').onclick = async () => {
+    const values = headers.map((_, i) => { const el = $(`[data-i="${i}"]`); return el ? el.value.trim() : vals[i]; });
+    if (!values[0]) return toast('請輸入公園名稱', true);
+    const btn = $('#save'); btn.disabled = true; btn.textContent = '儲存中…';
+    try {
+      const res = await api('saveRow', v.sheet, v.row ? v.row.row : null, values, v.row ? v.row.values : null);
+      if (v.row) v.row.values = res.values; else rows.push({ row: res.row, values: res.values });
+      writeCache('getSheetData:' + JSON.stringify([v.sheet]), S.data[v.sheet]);
+      updateProgressLocal(v.district, headers, rows);
+      toast('已儲存 ✓'); goBack();
+    } catch (e) { toast(e.message, true); btn.disabled = false; btn.textContent = '儲存'; }
+  };
+  if (v.row) $('#del').onclick = async () => {
+    if (!confirm(`確定刪除「${v.row.values[0]}」？\n(會刪除試算表中的整行)`)) return;
+    try {
+      await api('deleteRow', v.sheet, v.row.row, v.row.values);
+      const idx = rows.indexOf(v.row); rows.splice(idx, 1);
+      rows.forEach(r => { if (r.row > v.row.row) r.row--; });
+      writeCache('getSheetData:' + JSON.stringify([v.sheet]), S.data[v.sheet]);
+      updateProgressLocal(v.district, headers, rows);
+      toast('已刪除'); goBack();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+function updateProgressLocal(d, headers, rows) {
+  const nc = numCol(headers);
+  S.progress[d] = { visited: rows.filter(r => VISITED(r.values[nc])).length, total: rows.filter(r => String(r.values[0]).trim()).length };
+  writeCache('getProgress:[]', S.progress);
+}
+
+async function viewAll(v) {
+  setBar({ title: '全香港公園檢索', actions: [
+    { icon: 'search', label: '搜尋', on: S.searchOpen, run: toggleSearch },
+    { icon: 'refresh', label: '重新整理', run: async () => { loading(); await getData(S.cfg.allParksSheet, true).catch(showError); render(); } },
+  ]});
+  if (!S.data[S.cfg.allParksSheet]) { loading(); try { await getData(S.cfg.allParksSheet); } catch (e) { return showError(e); } if (current() !== v) return; }
+  const { headers, rows } = S.data[S.cfg.allParksSheet];
+  const gc = groupCol(headers);
+  v.closed = v.closed || {};
+  let list = rows;
+  if (S.search) list = list.filter(r => r.values.join(' ').toLowerCase().includes(S.search));
+  const groups = new Map();
+  list.forEach(r => { const g = r.values[gc] || '—'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(r); });
+  const nCols = headers.length;
+  let body = '';
+  groups.forEach((rs, g) => {
+    const closed = v.closed[g] && !S.search;
+    body += `<tr class="group ${closed ? 'closed' : ''}" data-g="${esc(g)}"><td colspan="${nCols}">${esc(g)}<span class="badge">${rs.length}</span><span class="chev">${ic('chev')}</span></td></tr>`;
+    if (!closed) body += rs.map(r => `<tr data-r="${r.row}">${r.values.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+  });
+  const widths = headers.map((_, i) => i === 0 ? '28%' : i === gc ? '24%' : '');
+  $('#main').innerHTML = `<table><colgroup>${widths.map(w => `<col style="width:${w}">`).join('')}</colgroup>
+    <thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>
+    ${list.length ? '' : '<div class="empty">找不到相符的公園</div>'}`;
+  $('#main').querySelectorAll('tr.group').forEach(tr => tr.onclick = () => { v.closed[tr.dataset.g] = !v.closed[tr.dataset.g]; render(); });
+  $('#main').querySelectorAll('tbody tr[data-r]').forEach(tr => tr.onclick = () => openFromAll(rows.find(r => r.row === +tr.dataset.r), gc));
+}
+
+async function openFromAll(r, gc) {
+  const dName = r.values[gc];
+  let d = null, ri = -1;
+  S.cfg.regions.forEach((reg, i) => reg.districts.forEach(x => { if (x.name === dName) { d = x; ri = i; } }));
+  if (!d) return toast('找不到地區：' + dName, true);
+  try {
+    loading();
+    const data = await getData(d.sheet);
+    const row = data.rows.find(x => String(x.values[0]).trim() === String(r.values[0]).trim());
+    S.tab = ri; S.stack = [{ type: 'region', idx: ri }]; resetSearch(); renderTabs();
+    S.stack.push({ type: 'district', name: d.name, sheet: d.sheet, sort: null, filter: 'all' });
+    if (row) S.stack.push({ type: 'edit', district: d.name, sheet: d.sheet, row });
+    else toast(`「${r.values[0]}」不在 ${d.name} 的列表中`, true);
+    render();
+  } catch (e) { showError(e); }
+}
+
+function domainOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } }
+function linkIcon(u) {
+  u = String(u).toLowerCase();
+  if (/\.pdf(\b|$)/.test(u)) return '📄';
+  if (/maps|goo\.gl\/maps|maps\.app/.test(u)) return '🗺️';
+  if (/elegislation/.test(u)) return '⚖️';
+  if (/legco|districtcouncils/.test(u)) return '🏛️';
+  if (/lcsd/.test(u)) return '🌳';
+  if (/pland/.test(u)) return '📐';
+  return '🔗';
+}
+function linkify(text, url) {
+  if (url && !/^https?:/.test(String(text).trim())) return `<a href="${esc(url)}" target="_blank">${esc(text)}</a>`;
+  return esc(text).replace(/(https?:\/\/[^\s]+)/g, (m) => `<a class="lnk" href="${m}" target="_blank">${linkIcon(m)} ${esc(domainOf(m.replace(/&amp;/g, '&')))}</a>`);
+}
+
+async function viewPage(v) {
+  const key = 'page:' + v.page.sheet;
+  setBar({ title: v.page.title, back: true, actions: [{ icon: 'search', on: S.searchOpen, run: toggleSearch }, { icon: 'refresh', run: () => { delete S.data[key]; render(); } }] });
+  if (!S.data[key]) { loading(); try { S.data[key] = await api('getPage', v.page.sheet); } catch (e) { return showError(e); } if (current() !== v) return; }
+  const { rows, links } = S.data[key];
+  if (rows.length < 2) return $('#main').innerHTML = '<div class="empty">此工作表沒有內容</div>';
+  const head = rows[0].map(h => String(h).trim());
+  const match = (e) => !S.search || e.text.toLowerCase().includes(S.search);
+
+  if (v.page.kind === 'links') {
+    const items = rows.slice(1).map((r, k) => {
+      const i = k + 1, url = (links[i] || []).find(Boolean) || r.find(c => /^https?:\/\//.test(String(c).trim())) || '';
+      return { title: r[0], url, text: r.join(' ') };
+    }).filter(e => (e.title || e.url) && match(e));
+    $('#main').innerHTML = `<div class="linklist">${items.map(e => `
+      <a class="litem" href="${esc(e.url)}" target="_blank">
+        <span class="lic">${linkIcon(e.url)}</span>
+        <span class="lt"><b>${esc(e.title || domainOf(e.url))}</b><small>${esc(domainOf(e.url))}</small></span>
+        <span class="lgo">${ic('open')}</span></a>`).join('')}</div>
+      <div class="foot">${items.length} 個連結</div>`;
+    return;
+  }
+
+  const tagIdx = head.map((h, i) => /^(十八區|地區|地點)$/.test(h) ? i : -1).filter(i => i > 0);
+  const hiIdx = head.findIndex(h => /^(myth|plan|status|狀態)$/i.test(h));
+  const entries = [];
+  rows.slice(1).forEach((r, k) => {
+    const i = k + 1;
+    if (!r.some(c => String(c).trim())) return;
+    if (!String(r[0]).trim() && entries.length) { entries[entries.length - 1].extra.push({ r, l: links[i] || [] }); return; }
+    entries.push({ r, l: links[i] || [], extra: [] });
+  });
+  entries.forEach(e => e.text = [e.r].concat(e.extra.map(x => x.r)).flat().join(' '));
+  const shown = entries.filter(match);
+  const cell = (r, l, j) => linkify(r[j], l[j]);
+  $('#main').innerHTML = `<div class="cards">${shown.map(e => {
+    const { r, l } = e;
+    const tags = tagIdx.filter(j => String(r[j]).trim()).map(j => `<span class="tag">${esc(r[j])}</span>`).join('');
+    const hi = hiIdx > 0 && String(r[hiIdx]).trim() ? `<div class="hi"><small>${esc(head[hiIdx])}</small>${cell(r, l, hiIdx)}</div>` : '';
+    const rest = r.map((c, j) => (j === 0 || j === hiIdx || tagIdx.includes(j) || !String(c).trim()) ? '' :
+      `<p>${head[j] ? `<small>${esc(head[j])}</small>` : ''}${cell(r, l, j)}</p>`).join('');
+    const extra = e.extra.map(x => x.r.map((c, j) => String(c).trim() ? `<p class="note">↳ ${cell(x.r, x.l, j)}</p>` : '').join('')).join('');
+    return `<div class="card"><h3>${cell(r, l, 0)}</h3>${tags ? `<div class="tags">${tags}</div>` : ''}${hi}${rest}${extra}</div>`;
+  }).join('')}</div><div class="foot">${shown.length} 項</div>`;
+}
+
+function viewAbout() {
+  setBar({ title: 'About', back: true });
+  let tv = 0, tt = 0;
+  const lines = S.cfg.regions.map(r => {
+    let v = 0, t = 0; r.districts.forEach(d => { const p = S.progress[d.name]; if (p) { v += p.visited; t += p.total; } });
+    tv += v; tt += t;
+    return `<div class="summary" style="margin:10px 0">${esc(r.name)}<b style="margin-left:auto">${v}</b>/ ${t}</div>`;
+  }).join('');
+  $('#main').innerHTML = `<div class="prose"><h2>🌳 ${esc(S.cfg.title)}</h2>
+    <p>目標：走遍全港所有公園、遊樂場及休憩處。</p>
+    <div class="summary" style="margin:16px 0"><b>${tv}</b> / ${tt} 全港已到訪 (${tt ? Math.round(tv / tt * 100) : 0}%)</div>${lines}
+    <p style="color:var(--muted);font-size:13px;margin-top:24px">資料直接儲存於你的 Google Sheet。<br>GitHub Pages PWA + Google Apps Script API.</p></div>`;
+}
+
+function viewShortcut() {
+  setBar({ title: 'Add Shortcut', back: true });
+  $('#main').innerHTML = `<div class="prose"><h2>加到主畫面</h2>
+    <p><b>iPhone (Safari)</b><br>1. 按下方的「分享」按鈕 ⬆︎<br>2. 選「加入主畫面」<br>3. 名稱輸入 Parks in HK，按「加入」</p>
+    <p><b>Android (Chrome)</b><br>1. 按右上角 ⋮<br>2. 選「加到主畫面」</p>
+    <p style="color:var(--muted);font-size:14px">提示：此版本已支援 PWA 離線快取，且不受 Safari 多重 Google 帳戶影響。</p></div>`;
+}
+
+/* ===================== boot ===================== */
+async function loadProgress(force) {
+  try {
+    if (force) { S.data = {}; }
+    S.progress = await api('getProgress');
+    if (current() && current().type === 'region') render();
+    if (force) toast('已更新');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function boot() {
+  const conn = getConn();
+  if (!conn) {
+    S.stack = [{ type: 'setup' }];
+    render();
+    return;
+  }
+  loading();
+  try {
+    S.cfg = await api('getConfig');
+  } catch (e) {
+    S.stack = [{ type: 'setup', err: e.message || String(e) }];
+    render();
+    return;
+  }
+  document.title = S.cfg.title;
+  renderDrawer();
+  switchTab(0);
+  loadProgress();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+boot();
+
+/* ===================== demo mode sample data ===================== */
+const MOCK = (() => {
+  const regions = [
+    { name: '新界', icon: 'tree', districts: ['葵青','荃灣','元朗','屯門','北區','大埔','沙田','西貢','離島'] },
+    { name: '九龍', icon: 'flower', districts: ['深水埗','油尖旺','九龍城','黃大仙','觀塘'] },
+    { name: '香港', icon: 'city', districts: ['東區','中西區','南區','灣仔'] },
+  ];
+  const H = ['公園', '十八區', 'Number', '分類', '', '', 'Reference', 'remark'];
+  const FC = [false, false, false, true, true, false, false, false];
+  const kind = (n) => (n.match(/(公園|花園|休憩處|遊樂場|亭|海濱長廊|社區園圃|廣場)$/) || [''])[0];
+  const sheets = {};
+  regions.forEach(r => r.districts.forEach(d => {
+    const rows = Array.from({ length: 12 }, (_, i) => { const n = `${d}示範${['公園','花園','休憩處','遊樂場'][i % 4]}${i + 1}`; return [n, d, i < 5 ? String(5 - i).padStart(3, '0') : '', kind(n), kind(n), '', '', '']; });
+    sheets[d] = { headers: H, formulaCols: FC, rows: rows.map((v, i) => ({ row: i + 2, values: v })) };
+  }));
+  const all = [];
+  regions.forEach(r => r.districts.forEach(d => sheets[d].rows.forEach(x => all.push([x.values[0], d, x.values[2], x.values[7]]))));
+  sheets['全香港'] = { headers: ['公園', '地區', 'Number', 'Remark'], formulaCols: [true, false, false, false], rows: all.map((v, i) => ({ row: i + 2, values: v })) };
+  const pages = {
+    'unresolved myth': { rows: [['公園', '十八區', '地點', 'Reference', 'Myth', 'Comment'], ['示範休憩處', '九龍城', '', '', 'where?', 'probably resolved']], links: [['','','','','',''],['','','','','','']] },
+    'Plan': { rows: [['公園', '十八區', '地點', 'Plan'], ['示範公園', '灣仔', '', '下次再去']], links: [['','','',''],['','','','']] },
+    'Resources': { rows: [['Item', 'Link'], ['康文署公園列表', 'https://www.lcsd.gov.hk/tc/parks/index.html']], links: [['',''],['','']] },
+  };
+  return {
+    getConfig: () => ({ title: 'Parks in HK', regions: regions.map(r => ({ ...r, districts: r.districts.map(d => ({ name: d, sheet: d })) })),
+      listColumns: ['公園', 'Number', 'remark'], numberShortcuts: ['已不在', 'NA', '*', '?'],
+      menuPages: [{ title: 'Myth', sheet: 'unresolved myth', icon: 'help', kind: 'cards' }, { title: 'Plan', sheet: 'Plan', icon: 'edit', kind: 'cards' }, { title: 'Resources', sheet: 'Resources', icon: 'list', kind: 'links' }],
+      allParksSheet: '全香港', sheetUrl: '#' }),
+    getSheetData: (s) => { if (!sheets[s]) throw new Error('找不到工作表: ' + s); return JSON.parse(JSON.stringify(sheets[s])); },
+    getProgress: () => { const o = {}; regions.forEach(r => r.districts.forEach(d => { const sh = sheets[d]; const nc = numCol(sh.headers); o[d] = { visited: sh.rows.filter(x => VISITED(x.values[nc])).length, total: sh.rows.length }; })); return o; },
+    saveRow: (s, row, values) => {
+      const sh = sheets[s]; values = values.slice();
+      sh.formulaCols.forEach((f, i) => { if (f && i === 3) values[i] = kind(values[0]); });
+      if (row) { sh.rows.find(r => r.row === row).values = values; return { row, values }; }
+      const nr = Math.max(1, ...sh.rows.map(r => r.row)) + 1; sh.rows.push({ row: nr, values }); return { row: nr, values };
+    },
+    deleteRow: (s, row) => { const sh = sheets[s]; sh.rows = sh.rows.filter(r => r.row !== row); sh.rows.forEach(r => { if (r.row > row) r.row--; }); return true; },
+    getPage: (s) => JSON.parse(JSON.stringify(pages[s])),
+  };
+})();
+</script>
+</body>
+</html>
